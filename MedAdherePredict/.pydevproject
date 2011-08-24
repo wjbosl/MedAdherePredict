@@ -11,4 +11,9 @@
 <pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
 <path>/MedAdherePredict</path>
 </pydev_pathproperty>
+<pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
+<path>/Library/Frameworks/Python.framework/Versions/2.6/lib/python2.6/site-packages/xlrd-0.7.1-py2.6.egg</path>
+<path>/Library/Frameworks/Python.framework/Versions/2.6/lib/python2.6/site-packages/httplib2-0.7.1-py2.6.egg</path>
+<path>/Library/Frameworks/Python.framework/Versions/2.6/lib/python2.6/site-packages</path>
+</pydev_pathproperty>
 </pydev_project>

@@ -36,13 +36,16 @@ MANAGERS = ADMINS
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3', # Add 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
-        'NAME': '/Users/bosl/Workspace/MedAdherePredict/sqlite.db',                      # Or path to database file if using sqlite3.
+        'NAME': '/Users/bosl/Workspace/MedAdherePredict/MedAdherePredict/sqlite.db',                      # Or path to database file if using sqlite3.
         'USER': '',                      # Not used with sqlite3.
         'PASSWORD': '',                  # Not used with sqlite3.
         'HOST': '',                      # Set to empty string for localhost. Not used with sqlite3.
         'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
     }
 }
+
+# Used to assign relative paths
+SITE_ROOT = os.path.dirname(os.path.realpath(__file__))
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
@@ -69,12 +72,19 @@ USE_L10N = True
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 # Example: "/home/media/media.lawrence.com/media/"
-MEDIA_ROOT = '/Users/bosl/Workspace/MedAdherePredict/MedAdherePredict/Media/'
+MEDIA_ROOT = os.path.join(SITE_ROOT, 'Media/')
+
+# Some global variables that i want to use in views.py
+PATIENT_ID = 0
+ADHERE_VARS = [0,0,0,0,0]
 
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash.
 # Examples: "http://media.lawrence.com/media/", "http://example.com/media/"
 MEDIA_URL = 'http://localhost:8000/static/'
+
+# The base URI for the NDF-RT drug information database web service
+NDF_RT = 'http://rxnav.nlm.nih.gov/REST/Ndfrt/version/'
 
 # Absolute path to the directory static files should be collected to.
 # Don't put anything in this directory yourself; store your static files

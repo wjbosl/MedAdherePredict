@@ -12,14 +12,14 @@
 # For each drug category, there are 3 models, each for a different prediction
 # date: 60, 90 and 120 days after the date of the first prescription filled.
 # 
-# Drug category  prediction day  b  c1  c2  accuracy
-#label		label	coef		coef		coef		accuracy
-Statins 	60		7.195403   -8.850377   -0.038965   	0.462
-Antih 		60		5.9114599  -8.1396532  -0.0306625  	0.383
-Hypogly 	60		6.406127   -8.435820   -0.031095   	0.483
-Statins 	90		11.791364  -14.481215  -0.033888   	0.762  
-Antih 		90		1.043e+01  -1.342e+01  -2.873e-02  	0.686
-Hypogly 	90		10.75864   -13.59529   -0.02866    	0.732  
-Statins 	120		16.462244  -20.350373  -0.031211   	0.822  
-Antih 		120		14.396930  -18.259962  -0.026685   	0.809  
-Hypogly 	120		14.524065  -18.259678  -0.026009   	0.817  
+# Drug category  prediction date  b  c1  c2
+label		date		coef	    coef	coef
+antihyperlipidemics 	60		7.195403   -8.850377   -0.038965   
+antihypertensives 		60		5.9114599  -8.1396532  -0.0306625  
+oral_hypoglycemics 		60		6.406127   -8.435820   -0.031095   
+antihyperlipidemics 	90		11.791364  -14.481215  -0.033888     
+antihypertensives 		90		1.043e+01  -1.342e+01  -2.873e-02  
+oral_hypoglycemics 		90		10.75864   -13.59529   -0.02866      
+antihyperlipidemics 	120		16.462244  -20.350373  -0.031211     
+antihypertensives 		120		14.396930  -18.259962  -0.026685     
+oral_hypoglycemics 		120		14.524065  -18.259678  -0.026009     

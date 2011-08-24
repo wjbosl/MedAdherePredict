@@ -24,7 +24,7 @@
 """
 
 from django.conf.urls.defaults import patterns
-from MedCheck.views import index, bootstrap, risk
+from MedCheck.views import index, bootstrap, risk, about, choose_med
 import settings
 
 # A typical urlconf entry looks like this:
@@ -41,11 +41,14 @@ urlpatterns = patterns('',
     
     # List of all patients, indicating those with potential adherence issues
     (r'^smartapp/risk.html$', risk),
+    (r'^smartapp/about.html$', about),
+    (r'^smartapp/choose_med.html$', choose_med),
     
     # For images
     (r'^smartapp/(?P<path>.*)$', 'django.views.static.serve',{'document_root': settings.MEDIA_ROOT}),
     
-    # For images
+    # For RDF-NT drug information
+    (r'^smartapp/(?P<path>.*)$', 'django.views.static.serve',{'document_root': settings.NDF_RT}),
         
     # Examples:
     # url(r'^$', 'SMART.views.home', name='home'),

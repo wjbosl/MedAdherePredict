@@ -36,7 +36,7 @@ import urllib
 import MedAdherePredict.settings as settings
 import smart_client_python.smart as smart
 import smart_client_python.oauth as oauth
-import gap_check
+import adherence_check
 
 
 # Basic configuration:  the consumer key and secret we'll use
@@ -99,16 +99,28 @@ def index(request):
     pills = medications.query(query)
     birthday, patient_name = get_birthday_name(client)
     drug = 'all'
-    meds_flags, gaps, refill_data, refill_day, predictedAdherenceProblem, actualMPR = gap_check.gap_check(pills, drug, birthday)
-              
+    
+    # We only want to call the adherence_check once
+    if settings.PATIENT_ID == patientID:
+        meds_flags, gaps, refill_data, refill_day, actualMPR = settings.ADHERE_VARS
+    else:
+        settings.PATIENT_ID = patientID
+        meds_flags, gaps, refill_data, refill_day, actualMPR = adherence_check.all_tests(pills, drug, birthday)
+        settings.ADHERE_VARS = [meds_flags, gaps, refill_data, refill_day, actualMPR]
+        
+    drug_class_array = {}
+    for n in range(len(meds_flags)):
+        drug_class_array[meds_flags[n][5]] = 1
+    sorted_drug_class_list = sorted(drug_class_array.keys())
+                  
     variables = Context({
         'head_title': u'Medication Adherence Monitor',
         'user': user,
         'patientID': patientID,
         'meds_flags': meds_flags,
         'media_root': settings.MEDIA_ROOT,
-        'predictedAdherenceProblem': predictedAdherenceProblem,
         'patient_name': patient_name,
+        'drug_class_array': sorted_drug_class_list,
     })
     output = indexpage.render(variables)
     return HttpResponse(output)
@@ -154,26 +166,23 @@ def update_pill_dates(med, name, quant, when):
     if r > previous_value:
         last_pill_dates[name] = r
 
-
 def get_birthday_name(client):
-    """ Pulls the birthday and first/last name from demographics information. """
-    # Get demographic information for this patient
-    # GET /records/{record_id}/demographics
+    
+    #init_smart_client()
     demographics = client.records_X_demographics_GET()
+        
     query_demo = """
-        PREFIX dcterms:<http://purl.org/dc/terms/>
+        PREFIX foaf:<http://xmlns.com/foaf/0.1/> 
         PREFIX sp:<http://smartplatforms.org/terms#>
         PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-        PREFIX foaf:<http://xmlns.com/foaf/0.1/>
-        SELECT ?d ?fn ?ln ?bd
+        SELECT  ?firstname ?lastname ?gender ?birthday
         WHERE {
-          ?d rdf:type foaf:Person.
-          ?d foaf:givenName ?fn.
-          ?d foaf:familyName ?ln.
-          ?d sp:birthday ?bd.
+            ?r foaf:givenName ?firstname .
+            ?r foaf:familyName ?lastname .
+            ?r foaf:gender ?gender .
+            ?r sp:birthday ?birthday .
         }
-       """
-
+        """       
     # Get the birthday 
     demo = demographics.query(query_demo)
     for d in demo:
@@ -181,13 +190,13 @@ def get_birthday_name(client):
         birthday = d[3]
         
     return birthday, patient_name
+
     
 def risk(request):
     """ This function creates data and serves detailed information about 
     adherence for specific medications."""
     # Get the name of the drug if a specific one was requested.
     # The default is 'all' drugs.
-    indexpage = get_template('risk.html')
     drug = request.GET.get('drug', 'all')
    
     # Get information from the cookie
@@ -225,8 +234,13 @@ def risk(request):
        """
     
     pills = medications.query(query)
-    birthday, patient_name = get_birthday_name(client)
-  
+    #birthday, patient_name = get_birthday_name(client)
+    
+    # The the fulfillment gap and MPR prediction data    
+    #meds_predict, predictedMPR, actualMPR = logR.gapPredict_logR(pills)
+    #meds_flags, gaps, refill_data, refill_day, actualMPR = gap_check.gap_check(pills, drug, birthday)
+    meds_flags, gaps, refill_data, refill_day, actualMPR = settings.ADHERE_VARS
+
     names = {}
     if drug == 'all':   # get all the drugs for this patient
         for pill in pills: 
@@ -234,11 +248,12 @@ def risk(request):
             names[name] = name
             d = pill[3]
     else: # only use the specified drug name
-        names[drug] = drug
-        
-    # The the fulfillment gap and MPR prediction data    
-    #meds_predict, predictedMPR, actualMPR = logR.gapPredict_logR(pills)
-    meds_flags, gaps, refill_data, refill_day, predictedMPR, actualMPR = gap_check.gap_check(pills, drug, birthday)
+        meds_flags_new = []
+        names[drug] = drug        
+        for item in meds_flags:
+            if drug == item[0]:
+                meds_flags_new.append(item)
+        meds_flags = meds_flags_new 
                 
     ad_data = []
     med_names = []
@@ -253,7 +268,13 @@ def risk(request):
         d["measures"] = [1.0]
         d["markers"] = [mpr[3]]
         ad_data.append(d)
-                
+           
+    drug_class_array = {}
+    for n in range(len(meds_flags)):
+        drug_class_array[meds_flags[n][5]] = 1
+    sorted_drug_class_array = sorted(drug_class_array.keys())
+
+                            
     # Determine width and height of chart by the number of drugs to be shown
     width = 400
     height = 100
@@ -269,11 +290,21 @@ def risk(request):
                 'refill_day': simplejson.dumps(refill_day),
                 'refill': simplejson.dumps(refill_data),
                 'gaps': simplejson.dumps(gaps),
-                'predictedMPR': simplejson.dumps(predictedMPR),
                 'width': width,
                 'height': height,
+                'drug_class_array': sorted_drug_class_array
                 })     
     response = render_to_response("risk.html", context_instance=variables )
+    return HttpResponse(response)
+
+def about(request):
+    """ This function creates a page with information about the med adherence application."""
+    response = render_to_response("about.html")
+    return HttpResponse(response)
+
+def choose_med(request):
+    """ This function creates a page with instructions for the med adherence application."""
+    response = render_to_response("choose_med.html")
     return HttpResponse(response)
 
  

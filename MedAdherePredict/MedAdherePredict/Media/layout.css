@@ -63,4 +63,33 @@ background-color:#eecccc;
 }
 
 
+ul#list-nav {
+list-style:none;
+margin:0px;
+padding:0;
+width:650px
+}
+
+ul#list-nav li {
+display:inline
+}
+
+ul#list-nav li a {
+text-decoration:none;
+padding:4px 0;
+width:152px;
+background:#993333;
+color:#eee;
+float:left;
+text-align:center;
+border-left:1px solid #fff;
+}
+
+ul#list-nav li a:hover {
+background:#cccccc;
+color:#000
+}
+
+
+
 </style>

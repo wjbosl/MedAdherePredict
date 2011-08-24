@@ -3,7 +3,7 @@
 import datetime
 import adherence_predict as adhere
 from django.conf import settings
-import numpy as np
+import math
 
 # Global variables
 ISO_8601_DATETIME = '%Y-%m-%d'
@@ -18,10 +18,13 @@ File: gap_check.py
     Boston, MA 02115
 
     Description: This class has a function that takes a list of prescription fulfillment
-    dates and checks for gaps larger than a specified threshold.
+    dates and checks for gaps larger than a specified threshold. It also calls
+    the adherence prediction function. Return values include the mpr time
+    series, gap check results, 1-year adherence prediction, dates of refills
+    and gaps: all the variables needed for plotting.
 
 """
-def gap_check(patient_refill_data, drug, birthday):
+def gap_check(patient_refill_data, drug, birthday, all_drug_classes):
     
     # Local variables
     model_prediction_days = [60,90,120]
@@ -32,10 +35,9 @@ def gap_check(patient_refill_data, drug, birthday):
     mpr_tseries = {}
     refill_day = {}
     gaps = {}
-    predictedMPR = {}
     actualMPR = {}
     logistic_data_file = settings.MEDIA_ROOT + "genLinearModel.txt"
-    adherence = adhere.adherence_predict(logistic_data_file)
+    adherence = adhere.adherence_predict(logistic_data_file, all_drug_classes)
         
     # Go through the list of refill data for each drug and determine which have gaps
     for data in patient_refill_data: 
@@ -56,35 +58,51 @@ def gap_check(patient_refill_data, drug, birthday):
                 gaps[name] = []
                 refill_day[name] = []
             refill_data[name][d] = quant
-    sorted(refill_data.keys())
                     
     # Check for gaps and predict adherence
-    for name in refill_data.keys():
+    for name in sorted(refill_data.keys()):
         dates = refill_data[name].keys()
         npills = refill_data[name].values()
-        pMPR_yesno = False
+        pMPR_yesno = -1 # default value: no prediction made
+        
         
         # Sort dates and npills list together / simultaneously
         dates, npills = zip(*sorted(zip(dates, npills)))
-                        
-        # If the total pills for all refills is less than 1 year, make an adherence
-        # prediction based on the regression model.
-        make_prediction = False
-        if np.sum(npills) < 365:
-            make_prediction = True
-        
-        # Determine the patient's age on the date of first fill for this med
+        nDates = len(dates)
         date0 = dates[0]
         first = date0       # This will change; it's the fill date or the day on which the 
         last = date0        # next batch of pills will start to be used.
-        bd = datetime.datetime.strptime(str(birthday), ISO_8601_DATETIME)
-        age_on_first_fill[name] = date0 - bd
-                        
-        pMPR = 1.0
-        age = age_on_first_fill[name].days/365          # Age in years on first fill date
+        
+        # Determine the total length of time, in days, pills have been taken, 
+        # including gaps (that is, from first day through the day when the 
+        # last pill from the last prescription fill was taken.
+        nDays = 0
+        for i in range(1,nDates):
+            s1 = (dates[i] - dates[i-1]).days
+            s2 = npills[i-1]
+            if s1>s2: nDays = nDays + s1
+            else: nDays = nDays + s2
+        nDays = nDays + npills[nDates-1]
+        
+        print "Drug: ", name, "; nDays = ", nDays,"; nDates = ", nDates,", lenpills = ", len(npills)
 
-        nDates = len(dates)
-        nDays = (dates[nDates-1] - date0).days + npills[nDates-1]
+        make_prediction = False
+        shortname = name.split()[0].lower()   
+        if shortname in all_drug_classes.keys():
+            drug_class = all_drug_classes[shortname]
+            # If the total pills for all refills is less than 1 year, make an adherence
+            # prediction based on the regression model.
+            
+            if nDays < 360: 
+                make_prediction = True
+        else:
+            drug_class = "other"
+            
+        
+        # Determine the patient's age on the date of first fill for this med
+        bd = datetime.datetime.strptime(str(birthday), ISO_8601_DATETIME)
+        age_on_first_fill[name] = date0 - bd      
+        age = age_on_first_fill[name].days/365          # Age in years on first fill date
                 
         mpr = 1.0
         day = 0     # Initial fill
@@ -96,9 +114,8 @@ def gap_check(patient_refill_data, drug, birthday):
         if nDates > 1:
             next_refill_day = (dates[1] - date0).days
         mpr_tseries[name].append( [0, mpr] )
-        predictedMPR[name] = [ [day,mpr], [day, mpr] ] 
         refill_day[name].append([0,1.0])
-        for day in range(1, nDays): 
+        for day in range(1, nDays+1): 
                                         
             # Is it time for a refill? Check to see if prescription was filled
             if day == next_refill_day and next_refill_day < nDays:
@@ -123,19 +140,14 @@ def gap_check(patient_refill_data, drug, birthday):
             if (day in model_prediction_days) and make_prediction:
                 # Record the mpr at 60, 90 and 120 days, in case we need to make a prediction  
                 pMPR_yesno = adherence.predict(name, age, mpr, day) 
-                            
+                                            
             # If the number of available pills is less than zero, we have a gap
-            if pills_available == 0 and day < nDays-1:
+            if pills_available == 0 and day < nDays:
                 mpr_tseries[name].append( "null" )
                 gaps[name].append( [day, mpr] )
             else:
                 mpr_tseries[name].append( [day, mpr] )
-                
-        if make_prediction:
-            predictedMPR[name][0][0] = mpr_tseries[name][-1]
-            predictedMPR[name][1][0] = mpr_tseries[name][-1]
-            #predictedMPR[name][1][1] = mpr_tseries[name][-1][1]
-                       
+                                       
         for i in range(1,len(dates)):
             #q = refill_data[name][dates[i-1]]
             
@@ -150,21 +162,38 @@ def gap_check(patient_refill_data, drug, birthday):
         # flag=0: 30-day gaps; flag=1: predicted 1-year MPR<0.8;
         # flag=2: Actual 1-year MPR<0.8; flag=3: Predicted 1-year MPR>0.8;
         # flag=4: Actual 1-year MPR>0.8 
-        if nDays < 60:
-            flag = 5
-        elif max_gap[name] > threshold:   # 30-day gaps
+        good_threshold = 0.9
+        acceptable_threshold = 0.8
+        
+        if max_gap[name] > threshold:   # 30-day gaps
             flag = 0
-        elif nDays>364 and mpr<0.8:     # actual mpr < 0.8
-            flag = 1
-        elif nDays<365 and mpr<0.8:     # predicted mpr < 0.8
-            flag = 2
-        elif nDays>364 and mpr>=0.8:     # actual mpr < 0.8
-            flag = 3
-        elif nDays<365 and mpr>=0.8:     # predicted mpr < 0.8
-            flag = 4
-
+            
+        elif nDays >= 360:
+            if mpr >= good_threshold:
+                flag = 1
+            elif mpr >= acceptable_threshold:
+                flag = 2
+            else:
+                flag = 3
+                
+        elif nDays < 360:
+            if pMPR_yesno == -1:     # no prediction
+                if mpr >= good_threshold:
+                    flag = 1
+                elif mpr >= acceptable_threshold:
+                    flag = 2
+                else:
+                    flag = 3
+            else:
+                if pMPR_yesno == 0: # good adherence predicted
+                    if mpr >= acceptable_threshold: flag = 4
+                    else: flag = 5 # good predicted; current mpr is poor
+                else:  
+                    flag = 6    # poor predicted adherence
+        
         urlname = name.replace (" ", "%20")
-        gap_flag.append([name, urlname, flag, first, last])
-                       
-    return gap_flag, gaps, mpr_tseries, refill_day, predictedMPR, actualMPR
+        gap_flag.append([name, urlname, flag, first, last, drug_class, nDays, mpr])        
+                
+    return gap_flag, gaps, mpr_tseries, refill_day, actualMPR
+
     
